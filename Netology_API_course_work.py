@@ -21,7 +21,7 @@ oauth_url = f'{base_url}?{urlencode(params)}'
 TOKEN_VK = 'vk1.a.IK9rsskvSkkNIIA77Sz4O4BpvZhhpeUFwW85NPqDl9qGtlKv0sIc8JZh2dPqqDrIdqb_au00tWsTrLHyjaVM305tPkBf4T\
 irmSZEnmXzqvVKFkqRhHa0VHuFqxTB0DO1mD3OTCoReR2PsjDCJvsz5sfgVHK96OEuyk_HOMtG7W-iwqNrDock2IKw245DGOxY'
 
-TOKEN_YANDEX = '**************'
+#TOKEN_YANDEX = '**************'
 
 
 class VKAPIClient:
@@ -92,9 +92,9 @@ class YandexDiskAPIClient:
                     response = requests.put(url_upload, files = {'file': file})
                 bar()
 
-TOKEN_VK = input('Введите токен с Полигона Яндекс.Диска: ')
+TOKEN_YANDEX = input('Введите токен с Полигона Яндекс.Диска: ')
 # Сохраняем фотографии и данные о фотографиях в json-файл
-id = int(input('Введите id пользователя VK: '))
+id = int(input('Введите id пользователя VK, чьи фотографии вы хотите сохранить: '))
 vk_client = VKAPIClient(TOKEN_VK, 91024608)
 photos = vk_client.save_photos_and_json(id)
 
