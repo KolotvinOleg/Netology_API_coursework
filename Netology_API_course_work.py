@@ -1,5 +1,6 @@
 import requests
 import json
+import sys
 from urllib.parse import urlencode
 from datetime import datetime
 from alive_progress import alive_bar
@@ -18,10 +19,7 @@ params = {
 oauth_url = f'{base_url}?{urlencode(params)}'
 # print(oauth_url)
 
-TOKEN_VK = 'vk1.a.IK9rsskvSkkNIIA77Sz4O4BpvZhhpeUFwW85NPqDl9qGtlKv0sIc8JZh2dPqqDrIdqb_au00tWsTrLHyjaVM305tPkBf4T\
-irmSZEnmXzqvVKFkqRhHa0VHuFqxTB0DO1mD3OTCoReR2PsjDCJvsz5sfgVHK96OEuyk_HOMtG7W-iwqNrDock2IKw245DGOxY'
-
-#TOKEN_YANDEX = '**************'
+TOKEN_VK = '****************'
 
 
 class VKAPIClient:
@@ -41,27 +39,22 @@ class VKAPIClient:
         params = self.get_common_params()
         params.update({'owner_id': id, 'album_id': 'profile', 'extended': 1})
         response = requests.get(f'{self.API_BASE_URL}/photos.get', params=params)
+        for key in response.json():
+            if key == 'error':
+                sys.exit(1)
         return response.json()
 
-    def save_photos_and_json(self, id):
+    def save_info_about_photos(self, id):
         photos = self.get_profile_photos(id)
         photos_dict = {}
-        with alive_bar(len(photos['response']['items']), force_tty=True) as bar:
-            print('Сохраняем фотографии с профиля ВК')
-            for photo in photos['response']['items']:
-                url_photo = photo['sizes'][-1]['url']
-                photo_name = str(photo['likes']['count'])
-                if f'{photo_name}.jpg' in photos_dict:
-                    date = photo['date']
-                    photo_name += f"_{datetime.fromtimestamp(date).strftime('%Y-%m-%d')}"
-                photos_dict[f'{photo_name}.jpg'] = url_photo
-                response = requests.get(url_photo)
-                if 200 <= response.status_code < 300:
-                    with open(f'{photo_name}.jpg', 'wb') as file:
-                        file.write(response.content)
-                bar()
-        with open('Photos.json', 'w') as file:
-            json.dump(photos_dict, file)
+        for photo in photos['response']['items']:
+            url_photo = photo['sizes'][-1]['url']
+            photo_name = str(photo['likes']['count'])
+            size_photo = photo['sizes'][-1]['type']
+            if f'{photo_name}.jpg' in photos_dict:
+                date = photo['date']
+                photo_name += f"_{datetime.fromtimestamp(date).strftime('%Y-%m-%d')}"
+            photos_dict[f'{photo_name}.jpg'] = [url_photo, size_photo]
         return photos_dict
 
 
@@ -77,30 +70,28 @@ class YandexDiskAPIClient:
         params = {'path': self.folder_name}
         response = requests.put(url_for_creating_folder, params=params, headers=self.headers)
 
-    def get_url_for_loading_file(self, file_name):
+    def save_photos_in_folder(self, photos, folder_name):
+        self.creating_folder(folder_name)
         url_for_loading_file = self.API_BASE_URL + '/v1/disk/resources/upload'
-        params = {'path': f'{self.folder_name}/{file_name}'}
-        response = requests.get(url_for_loading_file, params=params, headers = self.headers)
-        return response.json()['href']
-
-    def save_photos_in_folder(self, photos):
         print('Загружаем фотографии на Яндекс Диск')
         with alive_bar(len(photos), force_tty=True) as bar:
-            for photo in photos:
-                url_upload = self.get_url_for_loading_file(photo)
-                with open(photo, 'rb') as file:
-                    response = requests.put(url_upload, files = {'file': file})
+            photos_lst = []
+            for key, value in photos.items():
+                json_dict = {'file_name': key, 'size': value[1]}
+                photos_lst.append(json_dict)
+                params = {'path': f'{folder_name}/{key}', 'url': value[0]}
+                response = requests.post(url_for_loading_file, params=params, headers=self.headers)
                 bar()
+        with open('Photos_info.json', 'w') as file:
+            json.dump(photos_lst, file)
 
-TOKEN_YANDEX = input('Введите токен с Полигона Яндекс.Диска: ')
-# Сохраняем фотографии и данные о фотографиях в json-файл
-id = int(input('Введите id пользователя VK, чьи фотографии вы хотите сохранить: '))
+
+# Сохраняем информацию о фотографиях с профиля ВК
+id = int(input('Введите id пользователя VK, чьи фотографии мы хотим сохранить: '))
 vk_client = VKAPIClient(TOKEN_VK, 91024608)
-photos = vk_client.save_photos_and_json(id)
+photos = vk_client.save_info_about_photos(id)
 
-# Создаем папку на Яндекс диске
+# Сохраняем фотографии из профиля ВК в папку на Яндекс Диск
+TOKEN_YANDEX = input('Введите токен с Полигона Яндекс.Диска: ')
 yandex_disk_client = YandexDiskAPIClient(TOKEN_YANDEX)
-yandex_disk_client.creating_folder('Photos_from_VK')
-
-#Сохраняем фотографии из профиля ВК в папку на Яндекс Диск
-yandex_disk_client.save_photos_in_folder(photos)
+yandex_disk_client.save_photos_in_folder(photos, 'Photos_from_VK')
